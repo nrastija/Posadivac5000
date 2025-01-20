@@ -1,8 +1,9 @@
 #include <Arduino.h>
+#include <Adafruit_Sensor.h>
 #include <DHT.h>
 
-#define DHTPIN 4
-#define DHTTYPE DHT22
+#define DHTPIN 26
+#define DHTTYPE DHT11
 
 //Inicijalizacija DHT senzora
 DHT dht(DHTPIN, DHTTYPE);
@@ -32,5 +33,6 @@ void loop() {
   Serial.print(vlaznost_zraka);
   Serial.println(" %");
 
+  delay(5000);
 }
 

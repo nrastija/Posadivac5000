@@ -11,10 +11,12 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.widget.Button
+import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
 
@@ -22,7 +24,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var bluetoothAdapter: BluetoothAdapter
     private var bluetoothGatt: BluetoothGatt? = null
     private lateinit var bluetoothLeScanner: BluetoothLeScanner
+
     private lateinit var statusTextView: TextView
+    private lateinit var airTemperatureValue: TextView
+    private lateinit var airHumidityProgress: ProgressBar
+    private lateinit var airHumidityText: TextView
+    private lateinit var soilHumidityProgress: ProgressBar
+    private lateinit var soilHumidityValue: TextView
     private lateinit var scanButton: Button
 
     private val SERVICE_UUID = "676fa518-e4cb-4afa-aae4-f211fe532d48"
@@ -32,17 +40,18 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // UI elementi
         statusTextView = findViewById(R.id.statusTextView)
+        airTemperatureValue = findViewById(R.id.air_temperature_value)
+        airHumidityProgress = findViewById(R.id.air_humidity_progress)
+        airHumidityText = findViewById(R.id.air_humidity_text)
+        soilHumidityProgress = findViewById(R.id.soil_humidity_progress)
+        soilHumidityValue = findViewById(R.id.soil_humidity_value)
         scanButton = findViewById(R.id.btn_scan)
-
-        Log.d("BLE", "Pokretanje aplikacije...")
 
         // Inicijalizacija Bluetooth-a
         initBluetooth()
 
         scanButton.setOnClickListener {
-            Log.d("BLE", "Gumb za skeniranje pritisnut")
             checkPermissionsAndStartScan()
         }
     }
@@ -60,7 +69,6 @@ class MainActivity : AppCompatActivity() {
 
     // Provjera dozvola prije skeniranja
     private fun checkPermissionsAndStartScan() {
-        Log.d("BLE", "Provjera dozvola za BLE skeniranje...")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN)
                 != PackageManager.PERMISSION_GRANTED ||
@@ -87,6 +95,14 @@ class MainActivity : AppCompatActivity() {
     // Funkcija za pokretanje BLE skeniranja
     private fun startBLEScan() {
         Log.d("BLE", "Počeo pokušaj skeniranja svih BLE uređaja...")
+
+        if (bluetoothGatt != null) {
+            runOnUiThread {
+                statusTextView.text = "Spojen sa ESP32-Posadivac5000"
+                scanButton.isEnabled = false
+            }
+            return
+        }
 
         if (!bluetoothAdapter.isEnabled) {
             statusTextView.text = "Uključi Bluetooth!"
@@ -127,19 +143,25 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Automatsko zaustavljanje skeniranja nakon 10 sekundi
         Handler(Looper.getMainLooper()).postDelayed({
             bluetoothLeScanner.stopScan(scanCallback)
             Log.d("BLE", "Skeniranje završeno.")
-            statusTextView.text = "Skeniranje završeno"
+
+            runOnUiThread {
+                if (bluetoothGatt != null) {
+                    statusTextView.text = "Spojen sa ESP32-Posadivac5000"
+                    scanButton.isEnabled = false // Onemogući gumb za ponovno skeniranje
+                } else {
+                    statusTextView.text = "Skeniranje završeno - uređaj nije pronađen"
+                }
+            }
         }, 10000)
+
     }
 
     // Callback funkcija za skeniranje BLE uređaja
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            Log.d("BLE", "Rezultat skeniranja dobiven")
-
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 if (ActivityCompat.checkSelfPermission(
                         this@MainActivity,
@@ -153,8 +175,6 @@ class MainActivity : AppCompatActivity() {
 
             // Dohvaćanje imena uređaja, ako nije dostupno prikazujemo "Nepoznato"
             val foundDeviceName = result.device.name ?: "Nepoznato"
-            Log.d("BLE", "Pronađen uređaj: $foundDeviceName - ${result.device.address}")
-
             // Ažuriraj UI s pronađenim uređajem
             runOnUiThread {
                 statusTextView.text = "Pronađen: $foundDeviceName"
@@ -174,7 +194,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         override fun onBatchScanResults(results: MutableList<ScanResult>) {
-            Log.d("BLE", "Pristiglo više rezultata skeniranja (${results.size} uređaja).")
             for (result in results) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     if (ActivityCompat.checkSelfPermission(
@@ -188,7 +207,6 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 val foundDeviceName = result.device.name ?: "Nepoznato"
-                Log.d("BLE", "Pronađen uređaj u batch skeniranju: $foundDeviceName - ${result.device.address}")
 
                 if (foundDeviceName == "ESP32-Posadivac5000") {
                     Log.d("BLE", "Pronađen traženi uređaj u batch skeniranju: ESP32-Posadivac5000")
@@ -228,33 +246,115 @@ class MainActivity : AppCompatActivity() {
     // Callback za upravljanje BLE vezom
     private val gattCallback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
-            if (newState == BluetoothGatt.STATE_CONNECTED) {
-                Log.d("BLE", "Povezano s uređajem")
-                runOnUiThread { statusTextView.text = "Povezano s uređajem!" }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    if (ActivityCompat.checkSelfPermission(
-                            this@MainActivity,
-                            Manifest.permission.BLUETOOTH_CONNECT
-                        ) != PackageManager.PERMISSION_GRANTED
-                    ) {
-                        Log.e("Bluetooth", "Dozvola za BLUETOOTH_CONNECT nije odobrena. Zatvaranje BLE veze preskočeno.")
-                        return
+                if (newState == BluetoothGatt.STATE_CONNECTED) {
+                    Log.d("BLE", "Povezano s uređajem")
+
+                    runOnUiThread {
+                        statusTextView.text = "Spojen sa ESP32-Posadivac5000"
+                        scanButton.isEnabled = false
+                        scanButton.text = "Spojeno"
+                    }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        if (ActivityCompat.checkSelfPermission(
+                                this@MainActivity,
+                                Manifest.permission.BLUETOOTH_CONNECT
+                            ) != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            Log.e("Bluetooth", "Dozvola za BLUETOOTH_CONNECT nije odobrena.")
+                            return
+                        }
+                    }
+                    gatt?.requestMtu(512)
+                    gatt?.discoverServices()
+                } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
+                    Log.e("BLE", "Odspojen od uređaja")
+
+                    runOnUiThread {
+                        statusTextView.text = "Odspojeno od ESP32"
+                        scanButton.isEnabled = true
+                        scanButton.text = "Skeniraj uređaje"
                     }
                 }
-                gatt?.discoverServices()
-            } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
-                Log.e("BLE", "Odspojen od uređaja")
-                runOnUiThread { statusTextView.text = "Odspojeno od uređaja" }
             }
-        }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                Log.d("BLE", "Servisi uspješno otkriveni")
-                runOnUiThread { statusTextView.text = "Servisi pronađeni" }
-            } else {
-                Log.e("BLE", "Greška pri otkrivanju servisa: $status")
+                Log.d("BLE", "Servisi pronađeni, registriram obavijesti...")
+
+                val characteristic = gatt?.getService(UUID.fromString(SERVICE_UUID))
+                    ?.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID))
+
+                if (ActivityCompat.checkSelfPermission(
+                        this@MainActivity,
+                        Manifest.permission.BLUETOOTH_CONNECT
+                    ) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    Log.e("Bluetooth", "Dozvola za BLUETOOTH_CONNECT nije odobrena. Zatvaranje BLE veze preskočeno.")
+                    return
+                }
+
+                if (characteristic != null) {
+                    gatt.setCharacteristicNotification(characteristic, true)
+
+                    val descriptor = characteristic.getDescriptor(
+                        UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+                    )
+                    descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                    gatt.writeDescriptor(descriptor)
+                }
             }
+        }
+
+        @Deprecated("Koristi novu verziju funkcije za rukovanje BLE podacima")
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt?,
+            characteristic: BluetoothGattCharacteristic?
+        ) {
+            if (ActivityCompat.checkSelfPermission(
+                    this@MainActivity,
+                    Manifest.permission.BLUETOOTH_CONNECT
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                Log.e("Bluetooth", "Dozvola za BLUETOOTH_CONNECT nije odobrena. Zatvaranje BLE veze preskočeno.")
+                return
+            }
+
+            bluetoothGatt?.setCharacteristicNotification(characteristic, true)
+            characteristic?.value?.let { data ->
+                val receivedData = String(data)
+                Log.d("BLE", "Primljeni podaci (STRING): $receivedData")
+
+                if (receivedData.isNotEmpty()) {
+                    parseAndDisplayData(receivedData)
+                } else {
+                    Log.e("BLE", "Podaci su prazni ili neispravni!")
+                }
+            }
+        }
+    }
+
+    private fun parseAndDisplayData(data: String) {
+        try {
+            if (!data.startsWith("{") || !data.endsWith("}")) {
+                Log.e("BLE", "Neispravan JSON format: $data")
+                return
+            }
+
+            val jsonObject = org.json.JSONObject(data)
+            val temperature = jsonObject.getDouble("temperature")
+            val humidity = jsonObject.getInt("humidity")
+            val soilMoisture = jsonObject.getInt("soil_moisture")
+
+            runOnUiThread {
+                airTemperatureValue.text = "$temperature °C"
+                airHumidityProgress.progress = humidity
+                airHumidityText.text = "$humidity %"
+                soilHumidityProgress.progress = soilMoisture
+                soilHumidityValue.text = "$soilMoisture %"
+            }
+        } catch (e: Exception) {
+            Log.e("BLE", "Greška u parsiranju podataka: ${e.message}")
         }
     }
 

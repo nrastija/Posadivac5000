@@ -29,7 +29,8 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        bluetoothAdapter = (getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager)
+        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        bluetoothAdapter = bluetoothManager.adapter
 
     }
 }

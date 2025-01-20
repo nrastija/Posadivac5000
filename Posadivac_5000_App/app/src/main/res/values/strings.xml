@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">Posadivac5000</string>
+    <string name="spojen_string">Spojen sa ESP32-Posadivac5000</string>
+    <string name="Povezivanje_string">Povezivanje s uređajem...</string>
+    <string name="Spojeno_string">Spojeno</string>
+    <string name="Odspojeno_string">Odspojeno od ESP32</string>
+    <string name="Skeniraj_string">Skeniraj uređaje</string>
+    <string name="Dozvole_string">Dozvole nisu odobrene</string>
 </resources>

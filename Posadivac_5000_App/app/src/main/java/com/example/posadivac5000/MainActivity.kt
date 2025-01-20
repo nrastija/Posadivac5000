@@ -1,6 +1,7 @@
 package com.example.posadivac5000
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.bluetooth.le.*
 import android.content.Context
@@ -20,7 +21,6 @@ import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
 
-    private val deviceName = "ESP32-App"
     private lateinit var bluetoothAdapter: BluetoothAdapter
     private var bluetoothGatt: BluetoothGatt? = null
     private lateinit var bluetoothLeScanner: BluetoothLeScanner
@@ -33,8 +33,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var soilHumidityValue: TextView
     private lateinit var scanButton: Button
 
-    private val SERVICE_UUID = "676fa518-e4cb-4afa-aae4-f211fe532d48"
-    private val CHARACTERISTIC_UUID = "a08ae7a0-11e8-483d-940c-a23d81245500"
+    private val ServiceUUID = "676fa518-e4cb-4afa-aae4-f211fe532d48"
+    private val CharacteristicUUID = "a08ae7a0-11e8-483d-940c-a23d81245500"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -93,12 +93,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Funkcija za pokretanje BLE skeniranja
+    @SuppressLint("SetTextI18n")
     private fun startBLEScan() {
         Log.d("BLE", "Počeo pokušaj skeniranja svih BLE uređaja...")
 
         if (bluetoothGatt != null) {
             runOnUiThread {
-                statusTextView.text = "Spojen sa ESP32-Posadivac5000"
+                statusTextView.text = getString(R.string.spojen_string)
                 scanButton.isEnabled = false
             }
             return
@@ -149,7 +150,7 @@ class MainActivity : AppCompatActivity() {
 
             runOnUiThread {
                 if (bluetoothGatt != null) {
-                    statusTextView.text = "Spojen sa ESP32-Posadivac5000"
+                    statusTextView.text = getString(R.string.spojen_string)
                     scanButton.isEnabled = false // Onemogući gumb za ponovno skeniranje
                 } else {
                     statusTextView.text = "Skeniranje završeno - uređaj nije pronađen"
@@ -177,7 +178,7 @@ class MainActivity : AppCompatActivity() {
             val foundDeviceName = result.device.name ?: "Nepoznato"
             // Ažuriraj UI s pronađenim uređajem
             runOnUiThread {
-                statusTextView.text = "Pronađen: $foundDeviceName"
+                "Pronađen: $foundDeviceName".also { statusTextView.text = it }
             }
 
             // Provjera je li pronađen naš uređaj "ESP32-Posadivac5000"
@@ -186,7 +187,7 @@ class MainActivity : AppCompatActivity() {
                 bluetoothLeScanner.stopScan(this)
 
                 runOnUiThread {
-                    statusTextView.text = "Povezivanje s: $foundDeviceName"
+                    "Povezivanje s: $foundDeviceName".also { statusTextView.text = it }
                 }
 
                 connectToDevice(result.device)
@@ -220,7 +221,7 @@ class MainActivity : AppCompatActivity() {
         override fun onScanFailed(errorCode: Int) {
             Log.e("BLE", "Skeniranje nije uspjelo: $errorCode")
             runOnUiThread {
-                statusTextView.text = "Skeniranje nije uspjelo: $errorCode"
+                "Skeniranje nije uspjelo: $errorCode".also { statusTextView.text = it }
             }
         }
     }
@@ -228,7 +229,7 @@ class MainActivity : AppCompatActivity() {
     // Povezivanje s pronađenim BLE uređajem
     private fun connectToDevice(device: BluetoothDevice) {
         Log.d("BLE", "Povezivanje s uređajem ${device.address}")
-        statusTextView.text = "Povezivanje s uređajem..."
+        statusTextView.text = getString(R.string.Povezivanje_string)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (ActivityCompat.checkSelfPermission(
@@ -250,9 +251,9 @@ class MainActivity : AppCompatActivity() {
                     Log.d("BLE", "Povezano s uređajem")
 
                     runOnUiThread {
-                        statusTextView.text = "Spojen sa ESP32-Posadivac5000"
+                        statusTextView.text = getString(R.string.spojen_string)
                         scanButton.isEnabled = false
-                        scanButton.text = "Spojeno"
+                        scanButton.text = getString(R.string.Spojeno_string)
                     }
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -271,9 +272,9 @@ class MainActivity : AppCompatActivity() {
                     Log.e("BLE", "Odspojen od uređaja")
 
                     runOnUiThread {
-                        statusTextView.text = "Odspojeno od ESP32"
+                        statusTextView.text = getString(R.string.Odspojeno_string)
                         scanButton.isEnabled = true
-                        scanButton.text = "Skeniraj uređaje"
+                        scanButton.text = getString(R.string.Skeniraj_string)
                     }
                 }
             }
@@ -282,8 +283,8 @@ class MainActivity : AppCompatActivity() {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 Log.d("BLE", "Servisi pronađeni, registriram obavijesti...")
 
-                val characteristic = gatt?.getService(UUID.fromString(SERVICE_UUID))
-                    ?.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID))
+                val characteristic = gatt?.getService(UUID.fromString(ServiceUUID))
+                    ?.getCharacteristic(UUID.fromString(CharacteristicUUID))
 
                 if (ActivityCompat.checkSelfPermission(
                         this@MainActivity,
@@ -347,11 +348,11 @@ class MainActivity : AppCompatActivity() {
             val soilMoisture = jsonObject.getInt("soil_moisture")
 
             runOnUiThread {
-                airTemperatureValue.text = "$temperature °C"
+                "$temperature °C".also { airTemperatureValue.text = it }
                 airHumidityProgress.progress = humidity
-                airHumidityText.text = "$humidity %"
+                "$humidity %".also { airHumidityText.text = it }
                 soilHumidityProgress.progress = soilMoisture
-                soilHumidityValue.text = "$soilMoisture %"
+                "$soilMoisture %".also { soilHumidityValue.text = it }
             }
         } catch (e: Exception) {
             Log.e("BLE", "Greška u parsiranju podataka: ${e.message}")
@@ -370,7 +371,7 @@ class MainActivity : AppCompatActivity() {
                 Log.d("BLE", "Dozvole odobrene, pokrećem skeniranje")
                 startBLEScan()
             } else {
-                statusTextView.text = "Dozvole nisu odobrene"
+                statusTextView.text = getString(R.string.Dozvole_string)
                 Log.e("BLE", "Korisnik nije odobrio Bluetooth dozvole")
             }
         }

@@ -41,6 +41,14 @@
             app:iconPadding="8dp"
             android:layout_marginBottom="20dp"/>
 
+        <TextView
+            android:id="@+id/statusTextView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Status"
+            android:textSize="18sp"
+            android:paddingTop="20dp"/>
+
         <!-- Prikaz temperature -->
         <TextView
             android:id="@+id/temperature_lbl"

@@ -6,6 +6,7 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 
+
 class MainActivity : AppCompatActivity(), BluetoothHelper.BluetoothListener {
 
     private lateinit var bluetoothHelper: BluetoothHelper
@@ -17,6 +18,9 @@ class MainActivity : AppCompatActivity(), BluetoothHelper.BluetoothListener {
     private lateinit var soilHumidityProgress: ProgressBar
     private lateinit var soilHumidityValue: TextView
     private lateinit var scanButton: Button
+
+    private lateinit var sendPromptButton: Button
+    private lateinit var responseTextView: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -31,6 +35,22 @@ class MainActivity : AppCompatActivity(), BluetoothHelper.BluetoothListener {
     scanButton = findViewById(R.id.btn_scan)
 
     bluetoothHelper = BluetoothHelper(this, this)
+
+    sendPromptButton = findViewById(R.id.btn_send_prompt)
+    responseTextView = findViewById(R.id.chatgpt_response)
+
+    sendPromptButton.setOnClickListener {
+        val temperature = airTemperatureValue.text.toString().replace(" °C", "").toDoubleOrNull()
+        val humidity = airHumidityText.text.toString().replace(" %", "").toIntOrNull()
+        val soilMoisture = soilHumidityValue.text.toString().replace(" %", "").toIntOrNull()
+
+        if (temperature != null && humidity != null && soilMoisture != null) {
+            val query = "Koja biljka je najbolja za posaditi s temperaturom od $temperature°C, vlagom zraka $humidity% i vlagom tla $soilMoisture%?"
+            sendQueryToChatGPT(query)
+        } else {
+            responseTextView.text = "Podaci nisu dostupni za slanje upita."
+        }
+    }
 
     scanButton.setOnClickListener {
         if (bluetoothHelper.isBluetoothEnabled()) {
@@ -94,5 +114,9 @@ class MainActivity : AppCompatActivity(), BluetoothHelper.BluetoothListener {
         airHumidityText.text = "$humidity %"
         soilHumidityProgress.progress = soilMoisture
         soilHumidityValue.text = "$soilMoisture %"
+    }
+
+    private fun sendQueryToChatGPT(query: String){
+
     }
 }

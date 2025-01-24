@@ -61,7 +61,17 @@ void formatNFCID(const unsigned char* uid, int uidLength) {
     Serial.println(prislonjenaKartica.nfcid);
 }
 
+void getNFCData() {
+    // Ovdje bi se trebala izvršiti provjera u bazi podataka
+    // trenutno se samo postavlja flag userExists na true
+    userExists = true;
+}
 
+void writeLogtoDB(bool uredajUzet) {
+    // Ovdje bi se trebala izvršiti zapisivanje u bazu podataka
+    // trenutno se samo ispisuje poruka
+    Serial.println("Zapisivanje u bazu podataka...");
+}
 
 void setup() {
     Serial.begin(115200);

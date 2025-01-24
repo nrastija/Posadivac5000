@@ -4,6 +4,8 @@
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEServer.h>
+#include "Electroniccats_PN7150.h"
+
 
 #define SERVICE_UUID        "676fa518-e4cb-4afa-aae4-f211fe532d48"
 #define CHARACTERISTIC_UUID "a08ae7a0-11e8-483d-940c-a23d81245500"
@@ -12,13 +14,25 @@
 #define DHTTYPE DHT11  // Tip DHT senzora
 #define SOIL_MOISTURE_PIN 35 // Analogni pin za mjerenje vlažnosti tla
 
+
 //Inicijalizacija DHT senzora
 DHT dht(DHTPIN, DHTTYPE);
 
+//Inicijalizacija NFC modula
+Electroniccats_PN7150 nfc(33, 32, 0x28);
+
 BLECharacteristic *pCharacteristic;
 
-
 bool deviceConnected = false;
+bool deviceLogged = false;
+bool userExists = false;
+
+struct NFCKartica {
+    char nfcid[21];
+    char user[20];
+    char pass[8];
+} prislonjenaKartica;
+
 
 class MyServerCallbacks : public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) override {
@@ -32,6 +46,21 @@ class MyServerCallbacks : public BLEServerCallbacks {
         BLEDevice::startAdvertising();  // Ponovno pokreni oglašavanje
     }
 };
+
+void formatNFCID(const unsigned char* uid, int uidLength) {
+    char tempUID[3];  // Privremeni buffer za svaki bajt
+
+    prislonjenaKartica.nfcid[0] = '\0';  // Osiguraj da je string prazan prije dodavanja
+
+    for (int i = 0; i < uidLength; i++) {
+        sprintf(tempUID, "%02X", uid[i]);  // Konverzija u heks string (dva znaka po bajtu)
+        strcat(prislonjenaKartica.nfcid, tempUID);  // Dodaj bajt u konačni string
+    }
+
+    Serial.print("Spremljeni UID string: ");
+    Serial.println(prislonjenaKartica.nfcid);
+}
+
 
 
 void setup() {
@@ -62,11 +91,46 @@ void setup() {
     BLEDevice::startAdvertising();
 
     Serial.println("BLE oglasavanje pokrenuto...");
+
+    // Inicijalizacija NFC
+    Serial.print("connectNCI=");Serial.println(nfc.connectNCI());
+    Serial.print("configureSettings=");Serial.println(nfc.configureSettings());
+    Serial.print("configMode=");Serial.println(nfc.configMode());
+    Serial.print("startDiscovery=");Serial.println(nfc.startDiscovery());
+
+    Serial.println("NFC uspješno inicijaliziran!");
 }
 
 
 void loop() {
-    if (deviceConnected) { // Provjera da li je uređaj spojen
+    if (!deviceLogged) {
+        if (nfc.isTagDetected()) {
+            const unsigned char* uid = nfc.remoteDevice.getNFCID();
+            int uidLength = nfc.remoteDevice.getNFCIDLen();
+            Serial.println("NFC kartica prislonjena!");
+
+            formatNFCID(uid, uidLength);
+
+            getNFCData();
+
+            if (userExists) {
+                writeLogtoDB(true);
+                deviceLogged = true;
+
+                Serial.println("Uređaj otključan!");
+            } else {
+                Serial.println("Nepostojeći korisnik, uređaj zaključan!");
+            }
+        } else{
+            Serial.println("Uređaj zaključan, treba se otključati sa NFC karticom...");
+            
+        }
+        delay(1000);
+        return;
+    } 
+
+    if (deviceLogged && deviceConnected){ 
+
         float temperatura_zraka = dht.readTemperature();
         float vlaznost_zraka = dht.readHumidity();
         int sensor_analog = analogRead(SOIL_MOISTURE_PIN);
@@ -90,7 +154,10 @@ void loop() {
 
         delay(2000);  // Pauza od 2 sekunde
     } else {
-        Serial.println("Uređaj nije povezan, čekam vezu...");
+        Serial.println("Uređaj nije povezan sa Bluetooth LE, čekam vezu...");
         delay(5000);  // Pauza dok čeka vezu
     }
+    
+    
 }
+

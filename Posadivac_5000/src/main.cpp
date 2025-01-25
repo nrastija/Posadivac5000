@@ -63,19 +63,25 @@ class MyServerCallbacks : public BLEServerCallbacks
 
 void formatNFCID(const unsigned char *uid, int uidLength)
 {
-    char tempUID[3]; // Privremeni buffer za svaki bajt
-
-    prislonjenaKartica.nfcid[0] = '\0'; // Osiguraj da je string prazan prije dodavanja
+    prislonjenaKartica.nfcid[0] = '\0';  
 
     for (int i = 0; i < uidLength; i++)
     {
-        sprintf(tempUID, "%02X", uid[i]);          // Konverzija u heks string (dva znaka po bajtu)
-        strcat(prislonjenaKartica.nfcid, tempUID); // Dodaj bajt u konačni string
+        char tempUID[4];  
+        sprintf(tempUID, "%02X", uid[i]);  
+        strcat(prislonjenaKartica.nfcid, tempUID); 
+
+        if (i < uidLength - 1) {
+            strcat(prislonjenaKartica.nfcid, " ");
+        }
     }
 
+    Serial.println();
     Serial.print("Spremljeni UID string: ");
     Serial.println(prislonjenaKartica.nfcid);
 }
+
+
 void readAndParseJSON()
 {
     byte blockAddr = 4;
@@ -131,6 +137,7 @@ void readAndParseJSON()
     Serial.println(prislonjenaKartica.employee);
     Serial.print("Šifra: ");
     Serial.println(prislonjenaKartica.code);
+    Serial.println();
 }
 
 void getNFCData()
@@ -204,10 +211,58 @@ void getNFCData()
 
 void writeLogtoDB(bool uredajUzet)
 {
-    // Ovdje bi se trebala izvršiti zapisivanje u bazu podataka
-    // trenutno se samo ispisuje poruka
     Serial.println("Zapisivanje u bazu podataka...");
+
+    HTTPClient http;
+
+    String serverUrl = "https://posadivac5000-awayb2gthjbvhbga.northeurope-01.azurewebsites.net/esp_handler.php";
+
+    String actionType = uredajUzet ? "VRACANJE" : "UZIMANJE"; // False -> uredaj se tek uzima
+    String status = uredajUzet ? "COMPLETED" : "ACTIVE";  
+
+    String postData = "nfc_uid=" + String(prislonjenaKartica.nfcid) +
+                      "&user_id=" + String(prislonjenaKartica.userid) +
+                      "&action_type=" + actionType +
+                      "&status=" + status;
+
+    http.begin(serverUrl);
+    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+
+    int httpResponseCode = http.POST(postData);
+
+    if (httpResponseCode > 0) {
+        Serial.print("HTTP odgovor kod: ");
+        Serial.println(httpResponseCode);
+
+        String response = http.getString();
+        Serial.println("Odgovor sa servera: " + response);
+
+        StaticJsonDocument<256> doc;
+        DeserializationError error = deserializeJson(doc, response);
+
+        if (error) {
+            Serial.print("Greška pri parsiranju odgovora: ");
+            Serial.println(error.f_str());
+            return;
+        }
+
+        const char* status = doc["status"];
+        const char* message = doc["message"];
+
+        if (strcmp(status, "success") == 0) {
+            Serial.println("Podaci uspješno spremljeni!");
+        } else {
+            Serial.print("Greška: ");
+            Serial.println(message);
+        }
+    } else {
+        Serial.print("Greška pri slanju POST zahtjeva. HTTP kod: ");
+        Serial.println(httpResponseCode);
+    }
+
+    http.end();
 }
+
 
 void connectToWiFi()
 {
@@ -224,8 +279,8 @@ void connectToWiFi()
 
 void setup()
 {
-    Serial.println("================== SETUP ==================\n");
     Serial.begin(115200);
+    Serial.println("================== SETUP ==================\n");
     dht.begin();
 
     SPI.begin();
@@ -262,16 +317,18 @@ void loop()
     if (!deviceLogged)
     {
         if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
-        {
+        {   
+            Serial.println("================== NFC i BP ==================\n");
             Serial.println("NFC kartica prislonjena!");
             
+            formatNFCID(mfrc522.uid.uidByte, mfrc522.uid.size);
             readAndParseJSON();
             getNFCData();
 
             if (employeeExists)
             {
                 Serial.println("Uređaj otključan!\n");
-                writeLogtoDB(true);
+                writeLogtoDB(false);
                 deviceLogged = true;
             }
             else
@@ -281,6 +338,7 @@ void loop()
 
             mfrc522.PICC_HaltA();
             mfrc522.PCD_StopCrypto1();
+            Serial.println("===========================================\n\n");
         }
         else
         {

@@ -89,13 +89,109 @@ void writeToCard(char* data) {
 }
 
 void readFromCard() {
+  byte blockAddr = 4;  // Početni blok za čitanje
+  byte buffer[18];  // Buffer za čitanje podataka
+  byte size = sizeof(buffer); // Veličina buffera
 
+  Serial.println("Čitanje podataka s kartice:");
+
+  for (int i = 0; i < 48; i += 16) {
+    MFRC522::StatusCode status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, blockAddr, &key, &(mfrc522.uid));
+    if (status != MFRC522::STATUS_OK) {
+      Serial.print("Greška pri autentifikaciji: ");
+      Serial.println(mfrc522.GetStatusCodeName(status));
+      return;
+    }
+
+    status = mfrc522.MIFARE_Read(blockAddr, buffer, &size);
+    if (status != MFRC522::STATUS_OK) {
+      Serial.print("Greška pri čitanju podataka: ");
+      Serial.println(mfrc522.GetStatusCodeName(status));
+      return;
+    }
+
+    Serial.print("Podaci u bloku ");
+    Serial.print(blockAddr);
+    Serial.print(": ");
+
+    for (byte j = 0; j < 16; j++) {
+      if (buffer[j] >= 32 && buffer[j] <= 126) {
+        Serial.print((char)buffer[j]);  // Prikaz samo ASCII znakova
+      } else {
+        Serial.print(".");
+      }
+    }
+    Serial.println();
+
+    blockAddr++; // Sljedeći blok
+  }
 }
 
 void readAndParseJSON() {
+  byte blockAddr = 4;  // Početni blok
+  byte buffer[18];
+  byte size = sizeof(buffer);
+  String jsonData = "";
 
+  Serial.println("Čitanje podataka s kartice:");
+
+  for (int i = 0; i < 3; i++) {  // Čitamo 3 bloka
+    MFRC522::StatusCode status = mfrc522.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, blockAddr, &key, &(mfrc522.uid));
+    if (status != MFRC522::STATUS_OK) {
+      Serial.print("Greška pri autentifikaciji: ");
+      Serial.println(mfrc522.GetStatusCodeName(status));
+      return;
+    }
+
+    status = mfrc522.MIFARE_Read(blockAddr, buffer, &size);
+    if (status != MFRC522::STATUS_OK) {
+      Serial.print("Greška pri čitanju podataka: ");
+      Serial.println(mfrc522.GetStatusCodeName(status));
+      return;
+    }
+
+    Serial.print("Podaci u bloku ");
+    Serial.print(blockAddr);
+    Serial.print(": ");
+    
+    for (byte j = 0; j < 16; j++) {
+      if (buffer[j] >= 32 && buffer[j] <= 126) {
+        Serial.print((char)buffer[j]);  // Ispis čitljivih znakova
+        jsonData += (char)buffer[j];    // Dodavanje u string
+      } else {
+        Serial.print(".");  // Ispis za nečitljive znakove
+      }
+    }
+    Serial.println();
+    blockAddr++;
+  }
+
+  Serial.println("\nSpojeni podaci:");
+  Serial.println(jsonData);
+
+  // Parsiranje JSON-a
+  parseJSON(jsonData);
 } 
 
 void parseJSON(String jsonString) {
+  StaticJsonDocument<256> doc;
 
+  // Parsiranje JSON stringa
+  DeserializationError error = deserializeJson(doc, jsonString);
+
+  if (error) {
+    Serial.print("Greška pri parsiranju JSON-a: ");
+    Serial.println(error.f_str());
+    return;
+  }
+
+  // Dohvaćanje podataka iz JSON-a
+  const char* employee = doc["employee"];
+  const char* code = doc["code"];
+
+  Serial.println("Podaci iz JSON-a:");
+  Serial.print("Zaposlenik: ");
+  Serial.println(employee);
+  Serial.print("Kod: ");
+  Serial.println(code);
 }

@@ -1,18 +1,47 @@
-#include <Arduino.h>
+#include <SPI.h>
+#include <MFRC522.h>
+#include <ArduinoJson.h>
 
-// put function declarations here:
-int myFunction(int, int);
+#define SS_PIN 5      // Pin za SDA (prilagodi prema svojoj ploči)
+#define RST_PIN 22    // Pin za RST (prilagodi prema svojoj ploči)
+
+MFRC522 mfrc522(SS_PIN, RST_PIN);  // Inicijalizacija RC522 modula
+
+MFRC522::MIFARE_Key key;  // MIFARE ključ
+
+void writeToCard(char* data);
+void readFromCard();
+void readAndParseJSON();
+void parseJSON(String jsonString);
 
 void setup() {
-  // put your setup code here, to run once:
-  int result = myFunction(2, 3);
+  Serial.begin(115200);
+  SPI.begin();
+  mfrc522.PCD_Init();
+
+  // default kljuc (0xFFFFFFFFFFFF)
+  for (byte i = 0; i < 6; i++) {
+    key.keyByte[i] = 0xFF;
+  }
+
+  Serial.println("Prislonite karticu...");
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
 }
 
-// put function definitions here:
-int myFunction(int x, int y) {
-  return x + y;
+void writeToCard(char* data) {
+
+}
+
+void readFromCard() {
+
+}
+
+void readAndParseJSON() {
+
+} 
+
+void parseJSON(String jsonString) {
+
 }

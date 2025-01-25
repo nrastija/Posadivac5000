@@ -4,6 +4,8 @@
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEServer.h>
+#include <Wifi.h>
+#include <HTTPClient.h>
 #include "Electroniccats_PN7150.h"
 
 
@@ -14,6 +16,9 @@
 #define DHTTYPE DHT11  // Tip DHT senzora
 #define SOIL_MOISTURE_PIN 35 // Analogni pin za mjerenje vlažnosti tla
 
+// WiFi podaci
+const char* ssid = "Nspot";
+const char* password = "posadivac5000";
 
 //Inicijalizacija DHT senzora
 DHT dht(DHTPIN, DHTTYPE);
@@ -73,7 +78,19 @@ void writeLogtoDB(bool uredajUzet) {
     Serial.println("Zapisivanje u bazu podataka...");
 }
 
+void connectToWiFi() {
+    Serial.print("Povezivanje na WiFi...");
+    WiFi.begin(ssid, password);
+
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(1000);
+        Serial.print(".");
+    }
+    Serial.println("\nPovezan na WiFi!");
+}
+
 void setup() {
+    Serial.println("================== SETUP ==================\n");
     Serial.begin(115200);
     dht.begin();
     Serial.println("DHT22 test!");
@@ -91,24 +108,21 @@ void setup() {
         BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY
     );
     
-    pCharacteristic->setValue("Cekam podatke...");
     pService->start();
 
-    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
-    pAdvertising->addServiceUUID(SERVICE_UUID);
-    pAdvertising->setScanResponse(true);
-    pAdvertising->setMinPreferred(0x06);
     BLEDevice::startAdvertising();
-
     Serial.println("BLE oglasavanje pokrenuto...");
 
     // Inicijalizacija NFC
-    Serial.print("connectNCI=");Serial.println(nfc.connectNCI());
-    Serial.print("configureSettings=");Serial.println(nfc.configureSettings());
-    Serial.print("configMode=");Serial.println(nfc.configMode());
-    Serial.print("startDiscovery=");Serial.println(nfc.startDiscovery());
+    nfc.connectNCI();
+    nfc.configureSettings();
+    nfc.configMode();
+    nfc.startDiscovery();
 
     Serial.println("NFC uspješno inicijaliziran!");
+
+    connectToWiFi();
+    Serial.println("===========================================\n\n");
 }
 
 
@@ -127,9 +141,9 @@ void loop() {
                 writeLogtoDB(true);
                 deviceLogged = true;
 
-                Serial.println("Uređaj otključan!");
+                Serial.println("Uređaj otključan!\n");
             } else {
-                Serial.println("Nepostojeći korisnik, uređaj zaključan!");
+                Serial.println("Nepostojeći korisnik, uređaj zaključan!\n");
             }
         } else{
             Serial.println("Uređaj zaključan, treba se otključati sa NFC karticom...");

@@ -63,15 +63,16 @@ class MyServerCallbacks : public BLEServerCallbacks
 
 void formatNFCID(const unsigned char *uid, int uidLength)
 {
-    prislonjenaKartica.nfcid[0] = '\0';  
+    prislonjenaKartica.nfcid[0] = '\0';
 
     for (int i = 0; i < uidLength; i++)
     {
-        char tempUID[4];  
-        sprintf(tempUID, "%02X", uid[i]);  
-        strcat(prislonjenaKartica.nfcid, tempUID); 
+        char tempUID[4];
+        sprintf(tempUID, "%02X", uid[i]);
+        strcat(prislonjenaKartica.nfcid, tempUID);
 
-        if (i < uidLength - 1) {
+        if (i < uidLength - 1)
+        {
             strcat(prislonjenaKartica.nfcid, " ");
         }
     }
@@ -81,7 +82,43 @@ void formatNFCID(const unsigned char *uid, int uidLength)
     Serial.println(prislonjenaKartica.nfcid);
 }
 
+void writeLogtoDB(bool uredajUzet);
 
+void checkDeviceReturn()
+{
+    char tempUID[32] = ""; // Privremeni UID buffer za usporedbu
+
+    for (byte i = 0; i < mfrc522.uid.size; i++)
+    {
+        char temp[4];
+        sprintf(temp, "%02X", mfrc522.uid.uidByte[i]); // Pretvorba bajta u hex string
+        strcat(tempUID, temp);
+
+        if (i < mfrc522.uid.size - 1)
+        {
+            strcat(tempUID, " "); // Dodavanje razmaka osim na zadnjem bajtu
+        }
+    }
+    Serial.print("Usporedba UID-a: ");
+    Serial.println(tempUID);
+
+    // Provjera podudara li se UID kartice s onom koja je uzela uređaj
+    if (strcmp(tempUID, prislonjenaKartica.nfcid) == 0)
+    {
+        Serial.println("Uređaj je vraćen!");
+        writeLogtoDB(true);   // Spremi povratak uređaja u bazu
+        deviceLogged = false; // Ponovno čeka na novi unos kartice
+        Serial.println("Sustav ponovno zaključan.");
+    }
+    else
+    {
+        Serial.println("Kartica nije ista kao pri uzimanju uređaja!");
+    }
+
+    mfrc522.PICC_HaltA();
+    mfrc522.PCD_StopCrypto1();
+}
+ 
 void readAndParseJSON()
 {
     byte blockAddr = 4;
@@ -218,7 +255,7 @@ void writeLogtoDB(bool uredajUzet)
     String serverUrl = "https://posadivac5000-awayb2gthjbvhbga.northeurope-01.azurewebsites.net/esp_handler.php";
 
     String actionType = uredajUzet ? "VRACANJE" : "UZIMANJE"; // False -> uredaj se tek uzima
-    String status = uredajUzet ? "COMPLETED" : "ACTIVE";  
+    String status = uredajUzet ? "COMPLETED" : "ACTIVE";
 
     String postData = "nfc_uid=" + String(prislonjenaKartica.nfcid) +
                       "&user_id=" + String(prislonjenaKartica.userid) +
@@ -230,7 +267,8 @@ void writeLogtoDB(bool uredajUzet)
 
     int httpResponseCode = http.POST(postData);
 
-    if (httpResponseCode > 0) {
+    if (httpResponseCode > 0)
+    {
         Serial.print("HTTP odgovor kod: ");
         Serial.println(httpResponseCode);
 
@@ -240,29 +278,34 @@ void writeLogtoDB(bool uredajUzet)
         StaticJsonDocument<256> doc;
         DeserializationError error = deserializeJson(doc, response);
 
-        if (error) {
+        if (error)
+        {
             Serial.print("Greška pri parsiranju odgovora: ");
             Serial.println(error.f_str());
             return;
         }
 
-        const char* status = doc["status"];
-        const char* message = doc["message"];
+        const char *status = doc["status"];
+        const char *message = doc["message"];
 
-        if (strcmp(status, "success") == 0) {
+        if (strcmp(status, "success") == 0)
+        {
             Serial.println("Podaci uspješno spremljeni!");
-        } else {
+        }
+        else
+        {
             Serial.print("Greška: ");
             Serial.println(message);
         }
-    } else {
+    }
+    else
+    {
         Serial.print("Greška pri slanju POST zahtjeva. HTTP kod: ");
         Serial.println(httpResponseCode);
     }
 
     http.end();
 }
-
 
 void connectToWiFi()
 {
@@ -317,10 +360,10 @@ void loop()
     if (!deviceLogged)
     {
         if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
-        {   
+        {
             Serial.println("================== NFC i BP ==================\n");
             Serial.println("NFC kartica prislonjena!");
-            
+
             formatNFCID(mfrc522.uid.uidByte, mfrc522.uid.size);
             readAndParseJSON();
             getNFCData();
@@ -347,6 +390,18 @@ void loop()
 
         delay(1000);
         return;
+    }
+
+    if (deviceLogged)
+    {
+        // Provjera vraća li korisnik uređaj prislanjanjem kartice
+        if (deviceLogged)
+        {
+            if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
+            {
+                checkDeviceReturn();
+            }
+        }
     }
 
     if (deviceLogged && deviceConnected)
@@ -378,6 +433,7 @@ void loop()
     }
     else
     {
+
         Serial.println("Uređaj nije povezan sa Bluetooth LE, čekam vezu...");
         delay(5000); // Pauza dok čeka vezu
     }

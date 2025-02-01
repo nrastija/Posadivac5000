@@ -120,24 +120,29 @@ void loop()
 
     if (deviceLogged)
     {
-        // Provjera vraća li korisnik uređaj prislanjanjem kartice
-        if (deviceLogged)
+        if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
         {
-            if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())
-            {
-                checkDeviceReturn();
-            }
+            checkDeviceReturn();
         }
     }
 
     if (deviceLogged && deviceConnected)
     {
 
-        String data = sensorHelper.getSensorDataJSON();
-        Serial.println("Podaci poslani: " + data);
-        pCharacteristic->setValue(data.c_str());
-        pCharacteristic->notify();
+        static String lastData = "";
 
+        String data = sensorHelper.getSensorDataJSON();
+        if (data != lastData) // Šaljemo samo ako su podaci novi
+        {
+            Serial.println("Podaci poslani: " + data);
+            pCharacteristic->setValue(data.c_str());
+            pCharacteristic->notify();
+            lastData = data;
+        }
+        else
+        {
+            Serial.println("Podaci nisu promijenjeni, ne šaljem ponovno.");
+        }
         delay(2000); // Pauza od 2 sekunde
     }
     else

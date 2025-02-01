@@ -1,14 +1,16 @@
 #include <Arduino.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
-#include <BLEDevice.h>
-#include <BLEUtils.h>
-#include <BLEServer.h>
-#include <Wifi.h>
-#include <HTTPClient.h>
 #include <SPI.h>
+#include <BLEServer.h>
+#include <BLEDevice.h>
+#include <HTTPClient.h>
 #include <MFRC522.h>
 #include <ArduinoJson.h>
+
+//Helper klase
+#include "helpers/WifiHelper.h"
+#include "helpers/BluetoothHelper.h"
 
 #define SERVICE_UUID "676fa518-e4cb-4afa-aae4-f211fe532d48"
 #define CHARACTERISTIC_UUID "a08ae7a0-11e8-483d-940c-a23d81245500"
@@ -45,21 +47,6 @@ struct NFCKartica
     char code[8];
 } prislonjenaKartica;
 
-class MyServerCallbacks : public BLEServerCallbacks
-{
-    void onConnect(BLEServer *pServer) override
-    {
-        deviceConnected = true;
-        Serial.println("Uređaj spojen!");
-    };
-
-    void onDisconnect(BLEServer *pServer) override
-    {
-        deviceConnected = false;
-        Serial.println("Uređaj odspojen!");
-        BLEDevice::startAdvertising(); // Ponovno pokreni oglašavanje
-    }
-};
 
 void formatNFCID(const unsigned char *uid, int uidLength)
 {
@@ -172,7 +159,7 @@ void readAndParseJSON()
     Serial.println("Podaci uspješno pročitani s kartice:");
     Serial.print("Zaposlenik: ");
     Serial.println(prislonjenaKartica.employee);
-    Serial.print("Šifra: ");
+    Serial.print("Šifra: ");    
     Serial.println(prislonjenaKartica.code);
     Serial.println();
 }
@@ -307,18 +294,9 @@ void writeLogtoDB(bool uredajUzet)
     http.end();
 }
 
-void connectToWiFi()
-{
-    Serial.print("Povezivanje na WiFi...");
-    WiFi.begin(ssid, password);
 
-    while (WiFi.status() != WL_CONNECTED)
-    {
-        delay(1000);
-        Serial.print(".");
-    }
-    Serial.println("\nPovezan na WiFi!");
-}
+WifiHelper wifiHelper(ssid, password);
+BluetoothHelper bluetoothHelper(SERVICE_UUID, CHARACTERISTIC_UUID);
 
 void setup()
 {
@@ -329,34 +307,16 @@ void setup()
     SPI.begin();
     mfrc522.PCD_Init();
 
-    for (byte i = 0; i < 6; i++)
-    {
-        key.keyByte[i] = 0xFF;
-    }
+    bluetoothHelper.startAdvertising();
 
-    // Inicijalizacija BLE
-    BLEDevice::init("ESP32-Posadivac5000");
-    BLEDevice::setMTU(512);
-    BLEServer *pServer = BLEDevice::createServer();
-    pServer->setCallbacks(new MyServerCallbacks()); // Postavljanje callbacka
-
-    BLEService *pService = pServer->createService(SERVICE_UUID);
-
-    pCharacteristic = pService->createCharacteristic(
-        CHARACTERISTIC_UUID,
-        BLECharacteristic::PROPERTY_READ | BLECharacteristic::PROPERTY_NOTIFY);
-
-    pService->start();
-
-    BLEDevice::startAdvertising();
-    Serial.println("BLE oglasavanje pokrenuto...");
-
-    connectToWiFi();
+    wifiHelper.connect();
     Serial.println("===========================================\n\n");
 }
 
 void loop()
 {
+    deviceConnected = bluetoothHelper.isDeviceConnected();
+
     if (!deviceLogged)
     {
         if (mfrc522.PICC_IsNewCardPresent() && mfrc522.PICC_ReadCardSerial())

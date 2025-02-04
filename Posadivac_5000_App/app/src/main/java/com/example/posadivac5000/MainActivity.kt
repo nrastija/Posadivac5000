@@ -57,9 +57,44 @@ class MainActivity : AppCompatActivity(), BluetoothHelper.BluetoothListener {
         val soilMoisture = soilHumidityValue.text.toString().replace(" %", "").toIntOrNull()
 
         if (temperature != null && humidity != null && soilMoisture != null) {
-            val query = "Koja biljka je najbolja za posaditi u zemlju s temperaturom zraka od $temperature°C, vlagom zraka $humidity% i vlagom tla $soilMoisture%?"
-            sendQueryToChatGPT(query)
+            val query = """
+                Preporuči mi 5 biljaka koje će najbolje uspijevati u ovim uvjetima:
+                - Temperatura zraka: $temperature°C
+                - Vlaga zraka: $humidity%
+                - Vlaga tla: $soilMoisture%
+        
+                Odgovor napiši na hrvatskom jeziku, a u zagradi dodaj latinski naziv svake biljke. Koristi ovaj format:
+                1. [Naziv biljke na hrvatskom] ([Latinski naziv])
+                   - Opis: [Kratak opis biljke]
+                   - Preporuka za uzgoj: [Savjeti za uzgoj ove biljke u danim uvjetima]
+                   - Vrijeme rasta: [Procijenjeno vrijeme potrebno da biljka izraste]
+                   - Težina održavanja: [Ocjena od 1 do 5, gdje je 1 najlakše, a 5 najteže]
+                2. [Naziv biljke na hrvatskom] ([Latinski naziv])
+                   - Opis: [Kratak opis biljke]
+                   - Preporuka za uzgoj: [Savjeti za uzgoj ove biljke u danim uvjetima]
+                   - Vrijeme rasta: [Procijenjeno vrijeme potrebno da biljka izraste]
+                   - Težina održavanja: [Ocjena od 1 do 5, gdje je 1 najlakše, a 5 najteže]
+                3. [Naziv biljke na hrvatskom] ([Latinski naziv])
+                   - Opis: [Kratak opis biljke]
+                   - Preporuka za uzgoj: [Savjeti za uzgoj ove biljke u danim uvjetima]
+                   - Vrijeme rasta: [Procijenjeno vrijeme potrebno da biljka izraste]
+                   - Težina održavanja: [Ocjena od 1 do 5, gdje je 1 najlakše, a 5 najteže]
+                4. [Naziv biljke na hrvatskom] ([Latinski naziv])
+                   - Opis: [Kratak opis biljke]
+                   - Preporuka za uzgoj: [Savjeti za uzgoj ove biljke u danim uvjetima]
+                   - Vrijeme rasta: [Procijenjeno vrijeme potrebno da biljka izraste]
+                   - Težina održavanja: [Ocjena od 1 do 5, gdje je 1 najlakše, a 5 najteže]
+                5. [Naziv biljke na hrvatskom] ([Latinski naziv])
+                   - Opis: [Kratak opis biljke]
+                   - Preporuka za uzgoj: [Savjeti za uzgoj ove biljke u danim uvjetima]
+                   - Vrijeme rasta: [Procijenjeno vrijeme potrebno da biljka izraste]
+                   - Težina održavanja: [Ocjena od 1 do 5, gdje je 1 najlakše, a 5 najteže]
+                   
+                   Na dnu napiši svoju osobnu preporuku i razlog zašto preporučuješ tu ponuđenu biljku korisniku.
+                """.trimIndent()
+
             //sendQueryToHuggingFace(query)
+            sendQueryToChatGPT(query)
         } else {
             responseTextView.text = "Podaci nisu dostupni za slanje upita."
         }

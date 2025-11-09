@@ -17,9 +17,14 @@
 #define SS_PIN 5             // Pin za SDA (NFC)
 #define RST_PIN 22           // Pin za RST (NFC)
 
+// Pinovi za RGB LED
+#define RED_PIN 15
+#define GREEN_PIN 14
+#define BLUE_PIN 13
+
 // WiFi podaci
 const char *ssid = "Nspot";
-const char *password = "posadivac5000";
+const char *password = "niko1234";
 
 // BLE UUID-ovi
 #define SERVICE_UUID "676fa518-e4cb-4afa-aae4-f211fe532d48"
@@ -50,6 +55,10 @@ void checkDeviceReturn();
 void readAndParseJSON();
 void getNFCData();
 void connectToWiFi();
+void setupLEDLight();
+void notConnectedLED();
+void waitingForBluetoothLED();
+void readyForUsageLED();
 
 class MyServerCallbacks : public BLEServerCallbacks {
     void onConnect(BLEServer *pServer) override {
@@ -68,6 +77,8 @@ void setup() {
     Serial.begin(115200);
     Serial.println("================== SETUP ==================\n");
     
+    setupLEDLight();
+
     dht.begin();
     SPI.begin();
     mfrc522.PCD_Init();
@@ -119,6 +130,8 @@ void loop() {
             Serial.println("===========================================\n\n");
         } else {
             Serial.println("Uređaj zaključan, treba se otključati sa NFC karticom...");
+            
+            notConnectedLED();
         }
 
         delay(1000);
@@ -136,6 +149,8 @@ void loop() {
         float vlaznost_zraka = dht.readHumidity();
         int sensor_analog = analogRead(SOIL_MOISTURE_PIN);
         int vlaznost_tla = (sensor_analog / 4095.0) * 100;
+
+        readyForUsageLED();
 
         if (isnan(temperatura_zraka) || isnan(vlaznost_zraka)) {
             Serial.println("Greska pri citanju vrijednosti sa DHT22 senzora!");
@@ -155,6 +170,8 @@ void loop() {
         delay(2000);
     } else {
         Serial.println("Uređaj nije povezan sa Bluetooth LE, čekam vezu...");
+
+        waitingForBluetoothLED();
         delay(5000);
     }
 }
@@ -373,4 +390,50 @@ void connectToWiFi() {
         Serial.print(".");
     }
     Serial.println("\nPovezan na WiFi!");
+}
+
+void notConnectedLED() {
+    digitalWrite(RED_PIN, HIGH);
+    digitalWrite(GREEN_PIN, LOW);
+    digitalWrite(BLUE_PIN, LOW);
+    delay(500);
+    digitalWrite(RED_PIN, LOW);
+    delay(500);
+}
+
+void waitingForBluetoothLED() {
+    digitalWrite(RED_PIN, LOW);
+    digitalWrite(GREEN_PIN, LOW);
+    digitalWrite(BLUE_PIN, HIGH);
+    delay(500);
+    digitalWrite(BLUE_PIN, LOW);
+    delay(500);
+}
+
+void readyForUsageLED() {
+    digitalWrite(RED_PIN, LOW);
+    digitalWrite(GREEN_PIN, HIGH);
+    digitalWrite(BLUE_PIN, LOW);
+    delay(500);
+    digitalWrite(GREEN_PIN, LOW);
+    delay(500);
+}
+
+void setupLEDLight() {
+    pinMode(RED_PIN, OUTPUT);
+    pinMode(GREEN_PIN, OUTPUT);
+    pinMode(BLUE_PIN, OUTPUT);
+
+    digitalWrite(RED_PIN, LOW);
+    digitalWrite(GREEN_PIN, LOW);
+    digitalWrite(BLUE_PIN, LOW);
+    delay(500);
+    digitalWrite(RED_PIN, HIGH);
+    digitalWrite(GREEN_PIN, HIGH);
+    digitalWrite(BLUE_PIN, HIGH);
+    delay(500);
+    digitalWrite(RED_PIN, LOW);
+    digitalWrite(GREEN_PIN, LOW);
+    digitalWrite(BLUE_PIN, LOW);
+    delay(500);
 }
